@@ -142,6 +142,11 @@ type wakeHoldClient struct {
 
 func startWakeHoldClient(t *testing.T, ln net.Listener, protocol mcproto.ProtocolVersion, responseDelay time.Duration) *wakeHoldClient {
 	t.Helper()
+	return startWakeHoldClientForHost(t, ln, "mc.example.com", protocol, responseDelay)
+}
+
+func startWakeHoldClientForHost(t *testing.T, ln net.Listener, host string, protocol mcproto.ProtocolVersion, responseDelay time.Duration) *wakeHoldClient {
+	t.Helper()
 	conn, err := net.Dial("tcp", ln.Addr().String())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
@@ -149,7 +154,7 @@ func startWakeHoldClient(t *testing.T, ln net.Listener, protocol mcproto.Protoco
 	var sent bytes.Buffer
 	require.NoError(t, writeTestPacket(&sent, mcproto.PacketIdHandshake, func(w io.Writer) {
 		_ = mcproto.WriteVarInt(w, int32(protocol))
-		_ = mcproto.WriteString(w, "mc.example.com")
+		_ = mcproto.WriteString(w, host)
 		_, _ = w.Write([]byte{0x63, 0xdd})
 		_ = mcproto.WriteVarInt(w, int32(mcproto.StateLogin))
 	}))
@@ -245,7 +250,11 @@ type wakeHoldTest struct {
 
 func setupWakeHoldTest(t *testing.T, hold time.Duration, interval time.Duration) *wakeHoldTest {
 	t.Helper()
-	const scaleDownDelay = 300 * time.Millisecond
+	return setupWakeHoldTestWithIdleDelay(t, hold, interval, 300*time.Millisecond)
+}
+
+func setupWakeHoldTestWithIdleDelay(t *testing.T, hold time.Duration, interval time.Duration, scaleDownDelay time.Duration) *wakeHoldTest {
+	t.Helper()
 
 	backend := newWakeHoldBackend(t)
 	scaledDown := make(chan struct{}, 1)
